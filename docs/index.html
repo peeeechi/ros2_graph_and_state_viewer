@@ -156,8 +156,12 @@
 
     <script>
           var globalObjects = {
-              elements: {'graph_metadata': {'created_at': 1762225067407, 'description': 'Captured ROS 2 network graph using subprocess'}, 'nodes': {'/test/dummy/publisher/pcl_publisher': {'id': 'node_0', 'name': '/test/dummy/publisher/pcl_publisher', 'path': ['test', 'dummy', 'publisher', 'pcl_publisher'], 'type': 'component', 'parameters': [{'name': 'publish_frequency_hz', 'value': '5.0', 'type': 'double'}, {'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}, '/test/dummy/subscriber/pcl_subscriber': {'id': 'node_1', 'name': '/test/dummy/subscriber/pcl_subscriber', 'path': ['test', 'dummy', 'subscriber', 'pcl_subscriber'], 'type': 'component', 'parameters': [{'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}}, 'topics': {'/rosout': {'id': '/rosout', 'name': '/rosout', 'type': 'rcl_interfaces/msg/Log', 'message_schema': ['byte DEBUG=10', 'byte INFO=20', 'byte WARN=30', 'byte ERROR=40', 'byte FATAL=50', 'builtin_interfaces/Time stamp', '\tint32 sec', '\tuint32 nanosec', 'uint8 level', 'string name', 'string msg', 'string file', 'string function', 'uint32 line']}, '/test/dummy/pointcloud_topic': {'id': '/test/dummy/pointcloud_topic', 'name': '/test/dummy/pointcloud_topic', 'type': 'sensor_msgs/msg/PointCloud2', 'message_schema': ['std_msgs/Header header', '\tbuiltin_interfaces/Time stamp', '\t\tint32 sec', '\t\tuint32 nanosec', '\tstring frame_id', 'uint32 height', 'uint32 width', 'PointField[] fields', '\tuint8 INT8    = 1', '\tuint8 UINT8   = 2', '\tuint8 INT16   = 3', '\tuint8 UINT16  = 4', '\tuint8 INT32   = 5', '\tuint8 UINT32  = 6', '\tuint8 FLOAT32 = 7', '\tuint8 FLOAT64 = 8', '\tstring name      #', '\tuint32 offset    #', '\tuint8  datatype  #', '\tuint32 count     #', 'bool    is_bigendian # Is this data bigendian?', 'uint32  point_step   # Length of a point in bytes', 'uint32  row_step     # Length of a row in bytes', 'uint8[] data         # Actual point data, size is (row_step*height)', 'bool is_dense        # True if there are no invalid points']}}, 'services': {'/test/dummy/pointcloud_service': {'id': '/test/dummy/pointcloud_service', 'name': '/test/dummy/pointcloud_service', 'type': 'std_srvs/srv/Trigger', 'message_schema': ['---', 'bool success   # indicate successful run of triggered service', 'string message # informational, e.g. for error messages']}}, 'actions': {}, 'connections': [{'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_topic', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_service', 'direction': 'call'}, {'type': 'topic', 'source_id': '/test/dummy/pointcloud_topic', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'subscribe'}, {'type': 'topic', 'source_id': '/test/dummy/subscriber/pcl_subscriber', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/pointcloud_service', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'provide'}]},
+              elements: {'graph_metadata': {'created_at': 1762343120002, 'description': 'Captured ROS 2 network graph using subprocess'}, 'nodes': {'/test/dummy/publisher/pcl_publisher': {'id': 'node_0', 'name': '/test/dummy/publisher/pcl_publisher', 'path': ['test', 'dummy', 'publisher', 'pcl_publisher'], 'type': 'component', 'parameters': [{'name': 'publish_frequency_hz', 'value': '5.0', 'type': 'double'}, {'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}, '/test/dummy/subscriber/pcl_subscriber': {'id': 'node_1', 'name': '/test/dummy/subscriber/pcl_subscriber', 'path': ['test', 'dummy', 'subscriber', 'pcl_subscriber'], 'type': 'component', 'parameters': [{'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}}, 'topics': {'/rosout': {'id': '/rosout', 'name': '/rosout', 'type': 'rcl_interfaces/msg/Log', 'message_schema': ['byte DEBUG=10', 'byte INFO=20', 'byte WARN=30', 'byte ERROR=40', 'byte FATAL=50', 'builtin_interfaces/Time stamp', '\tint32 sec', '\tuint32 nanosec', 'uint8 level', 'string name', 'string msg', 'string file', 'string function', 'uint32 line']}, '/test/dummy/pointcloud_topic': {'id': '/test/dummy/pointcloud_topic', 'name': '/test/dummy/pointcloud_topic', 'type': 'sensor_msgs/msg/PointCloud2', 'message_schema': ['std_msgs/Header header', '\tbuiltin_interfaces/Time stamp', '\t\tint32 sec', '\t\tuint32 nanosec', '\tstring frame_id', 'uint32 height', 'uint32 width', 'PointField[] fields', '\tuint8 INT8    = 1', '\tuint8 UINT8   = 2', '\tuint8 INT16   = 3', '\tuint8 UINT16  = 4', '\tuint8 INT32   = 5', '\tuint8 UINT32  = 6', '\tuint8 FLOAT32 = 7', '\tuint8 FLOAT64 = 8', '\tstring name      #', '\tuint32 offset    #', '\tuint8  datatype  #', '\tuint32 count     #', 'bool    is_bigendian # Is this data bigendian?', 'uint32  point_step   # Length of a point in bytes', 'uint32  row_step     # Length of a row in bytes', 'uint8[] data         # Actual point data, size is (row_step*height)', 'bool is_dense        # True if there are no invalid points']}}, 'services': {'/test/dummy/pointcloud_service': {'id': '/test/dummy/pointcloud_service', 'name': '/test/dummy/pointcloud_service', 'type': 'std_srvs/srv/Trigger', 'message_schema': ['---', 'bool success   # indicate successful run of triggered service', 'string message # informational, e.g. for error messages']}}, 'actions': {}, 'connections': [{'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_topic', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_service', 'direction': 'call'}, {'type': 'topic', 'source_id': '/test/dummy/pointcloud_topic', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'subscribe'}, {'type': 'topic', 'source_id': '/test/dummy/subscriber/pcl_subscriber', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/pointcloud_service', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'provide'}]},
               cy: null,
+              mouse: {
+                x: 0,
+                y: 0,
+              },
               style: [
                       // コンパウンドノード（Rectグループ）のスタイル
                       {
@@ -583,17 +587,12 @@
 
                   currentSelectedNodeId = nodeId;
 
-                  // メニューの位置を計算 (Cytoscape座標を画面座標に変換)
-                  const viewport = globalObjects.cy.container().getBoundingClientRect();
-                  const x = evt.renderedPosition.x + viewport.left;
-                  const y = evt.renderedPosition.y + viewport.top;
-
                   // メニュー項目に表示するノード名を一時的に設定
                   document.getElementById('add-include-menu').textContent = `➡️「含める」に ${nodeLabel} を追加`;
                   document.getElementById('add-exclude-menu').textContent = `🚫 「除外する」に ${nodeLabel} を追加`;
 
-                  contextMenu.style.left = `${x}px`;
-                  contextMenu.style.top = `${y}px`;
+                  contextMenu.style.left = `${globalObjects.mouse.x}px`;
+                  contextMenu.style.top = `${globalObjects.mouse.y}px`;
                   contextMenu.style.display = 'block';
               });
 
@@ -786,6 +785,17 @@
       	}
 
       	redraw_graph();
+        const body = document.body;
+        body.addEventListener("mousemove", function (event) {
+            // 1. 要素のビューポート基準の位置を取得
+            const rect = body.getBoundingClientRect();
+            // 2. マウスのビューポート基準の位置を取得
+            const clientX = event.clientX;
+            const clientY = event.clientY;
+            // 3. 要素内での相対位置を計算,保持
+            globalObjects.mouse.x = clientX - rect.left;
+            globalObjects.mouse.y = clientY - rect.top;
+        });
 
       	document.getElementById('export-svg-btn').addEventListener('click', function() {
 

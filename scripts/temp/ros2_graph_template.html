@@ -158,6 +158,10 @@
           var globalObjects = {
               elements: {{ elements_data }},
               cy: null,
+              mouse: {
+                x: 0,
+                y: 0,
+              },
               style: [
                       // コンパウンドノード（Rectグループ）のスタイル
                       {
@@ -583,17 +587,12 @@
 
                   currentSelectedNodeId = nodeId;
 
-                  // メニューの位置を計算 (Cytoscape座標を画面座標に変換)
-                  const viewport = globalObjects.cy.container().getBoundingClientRect();
-                  const x = evt.renderedPosition.x + viewport.left;
-                  const y = evt.renderedPosition.y + viewport.top;
-
                   // メニュー項目に表示するノード名を一時的に設定
                   document.getElementById('add-include-menu').textContent = `➡️「含める」に ${nodeLabel} を追加`;
                   document.getElementById('add-exclude-menu').textContent = `🚫 「除外する」に ${nodeLabel} を追加`;
 
-                  contextMenu.style.left = `${x}px`;
-                  contextMenu.style.top = `${y}px`;
+                  contextMenu.style.left = `${globalObjects.mouse.x}px`;
+                  contextMenu.style.top = `${globalObjects.mouse.y}px`;
                   contextMenu.style.display = 'block';
               });
 
@@ -786,6 +785,17 @@
       	}
 
       	redraw_graph();
+        const body = document.body;
+        body.addEventListener("mousemove", function (event) {
+            // 1. 要素のビューポート基準の位置を取得
+            const rect = body.getBoundingClientRect();
+            // 2. マウスのビューポート基準の位置を取得
+            const clientX = event.clientX;
+            const clientY = event.clientY;
+            // 3. 要素内での相対位置を計算,保持
+            globalObjects.mouse.x = clientX - rect.left;
+            globalObjects.mouse.y = clientY - rect.top;
+        });
 
       	document.getElementById('export-svg-btn').addEventListener('click', function() {
 
