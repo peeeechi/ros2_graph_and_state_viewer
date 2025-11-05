@@ -531,16 +531,17 @@
                   const parent_id = topic.data.parent;
                   const parent_node = rosNodes.find(node => node.data.id == parent_id );
                   if (parent_node) {
-                      console.table([{
-                          parent_id: parent_id,
-                          node_id: parent_node.data.id,
-                          node_type: parent_node.data.ros2_type,
-                          node_parent: parent_node.data.parent,
-                      }]);
                       topic.data.parent = parent_node.data.parent;
                   }
               });
 
+              rosServices.forEach(service => {
+                  const parent_id = service.data.parent;
+                  const parent_node = rosNodes.find(node => node.data.id == parent_id );
+                  if (parent_node) {
+                      service.data.parent = parent_node.data.parent;
+                  }
+              });
 
               const node_elements = Object.keys(nodes).map(key => nodes[key]);
               cytoscape_data.elements = [...node_elements, ...edges];
