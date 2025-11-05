@@ -468,7 +468,7 @@
                   edges.push({
                       group: 'edges',
                       data: {
-                          id: `${source_id} -> ${target_id}`,
+                          id: `e-${edges.length + 1}`,
                           source: source_id,
                           target: target_id,
                           label: name,
@@ -597,8 +597,9 @@
 
                   let details = data.details ? JSON.stringify(data.details, null, 2) :
                                   `ID: ${data.id}\nROS2 Type: ${data.ros2_type}\n(詳細データなし)`;
+                  const direction = `${data.source} -> ${data.target}`;
 
-                  let output = `--- [${typeLabel}: ${data.label}] ---\nDirection: ${data.id}\n${(data.ros2_type == 'topic' || data.ros2_type == 'service')?"Type: " + data.msg_type + "\n" : ""}--------------------\n${details}`;
+                  let output = `--- [${typeLabel}: ${data.label}] ---\nDirection: ${direction}\n${(data.ros2_type == 'topic' || data.ros2_type == 'service')?"Type: " + data.msg_type + "\n" : ""}--------------------\n${details}`;
 
                   document.getElementById('details-panel').textContent = output;
               });
