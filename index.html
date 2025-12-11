@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ROS 2 Graph Viewer</title>
+    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+
+    <script src="https://unpkg.com/elkjs@0.7.1/lib/elk.bundled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-elk@2.3.0/dist/cytoscape-elk.min.js"></script>
+
+    <script src="https://unpkg.com/cytoscape-svg@0.4.0/cytoscape-svg.js"></script>
+    <style>
+      #cy {
+        height: 80vh;
+        display: block;
+        border-radius: 5px;
+        padding: 5px;
+        box-shadow: 0 2px 4px;
+        border: 1px solid #ddd;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 2%;
+        background-color: #f4f4f9;
+      }
+      .controls {
+        margin-bottom: 20px;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      #details-panel {
+        border: 1px solid #ccc;
+        background-color: #e9ecef;
+        padding: 10px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        height: 20vh;
+        overflow: auto;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      button {
+        padding: 8px 15px;
+        background-color: #1e90ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background-color: #1c7ed6;
+      }
+      .filter-container {
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+      }
+      .filter-item {
+        border-radius: 4px;
+        padding: 5px;
+        box-shadow: 0 2px 4px;
+        margin: 0 5px;
+      }
+      .menu-item {
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .menu-item:hover {
+        background-color: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ROS 2 Graph Viewer</h1>
+
+    <div class="controls">
+      <div id="details-panel">
+        クリックした要素（ノード、トピック、グループ）の詳細情報がここに表示されます。
+      </div>
+
+      <h3>グラフ フィルタ設定 (正規表現)</h3>
+
+      <div class="filter-container">
+        <div class="filter-item">
+          <p>含めるパターン</p>
+          <p>
+            <input
+              type="text"
+              id="include-regex-input"
+              placeholder="例: ^/your-namespace/.*(正規表現)"
+              style="width: 250px; padding: 5px; margin-right: 10px"
+            />
+            <button id="add-include-regex-btn">Add Filter</button>
+          </p>
+
+          <div id="include-filter-list" style="margin-top: 10px"></div>
+        </div>
+        <div class="filter-item">
+          <p>除外するパターン</p>
+          <input
+            type="text"
+            id="exclude-regex-input"
+            placeholder="例: ^/your-namespace/.*(正規表現)"
+            style="width: 250px; padding: 5px; margin-right: 10px"
+          />
+          <button id="add-exclude-regex-btn">Add Filter</button>
+          <div id="exclude-filter-list" style="margin-top: 10px"></div>
+        </div>
+      </div>
+
+      <div class="filter-container">
+        <div class="filter-item" style="margin-top: 5px">
+          <p>Export</p>
+          <div class="filter-container">
+            <div class="filter-item">
+              <button id="export-svg-btn">Export as SVG</button>
+            </div>
+            <div class="filter-item">
+              <button id="export-json-btn">Export as JSON</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-item" style="margin-top: 5px">
+          <p>Edge Style</p>
+          <select
+            id="edge-style-select"
+            style="padding: 5px; margin-bottom: 20px"
+          >
+            <option value="bezier">bezier</option>
+            <option value="straight-triangle">straight-triangle</option>
+            <option value="round-segments">round-segments</option>
+            <option value="round-taxi">round-taxi</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="cy"></div>
+
+    <div
+      id="context-menu"
+      style="
+        display: none;
+        position: absolute;
+        z-index: 1000;
+        background: white;
+        border: 1px solid #ccc;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 5px;
+      "
+    >
+      <div class="menu-item" id="add-include-menu">
+        ➡️ 「含めるパターン」にこのNodeを追加
+      </div>
+      <div
+        class="menu-item"
+        id="add-exclude-menu"
+        style="border-top: 1px solid #eee; padding-top: 5px; margin-top: 5px"
+      >
+        🚫 「除外するパターン」にこのNodeを追加
+      </div>
+    </div>
+
+    <script>
+          var globalObjects = {
+              elements: {'graph_metadata': {'created_at': 1762343120002, 'description': 'Captured ROS 2 network graph using subprocess'}, 'nodes': {'/test/dummy/publisher/pcl_publisher': {'id': 'node_0', 'name': '/test/dummy/publisher/pcl_publisher', 'path': ['test', 'dummy', 'publisher', 'pcl_publisher'], 'type': 'component', 'parameters': [{'name': 'publish_frequency_hz', 'value': '5.0', 'type': 'double'}, {'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}, '/test/dummy/subscriber/pcl_subscriber': {'id': 'node_1', 'name': '/test/dummy/subscriber/pcl_subscriber', 'path': ['test', 'dummy', 'subscriber', 'pcl_subscriber'], 'type': 'component', 'parameters': [{'name': 'qos_overrides./parameter_events.publisher.depth', 'value': '1000', 'type': 'integer'}, {'name': 'qos_overrides./parameter_events.publisher.durability', 'value': 'volatile', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.history', 'value': 'keep_last', 'type': 'string'}, {'name': 'qos_overrides./parameter_events.publisher.reliability', 'value': 'reliable', 'type': 'string'}, {'name': 'use_sim_time', 'value': 'False', 'type': 'boolean'}]}}, 'topics': {'/rosout': {'id': '/rosout', 'name': '/rosout', 'type': 'rcl_interfaces/msg/Log', 'message_schema': ['byte DEBUG=10', 'byte INFO=20', 'byte WARN=30', 'byte ERROR=40', 'byte FATAL=50', 'builtin_interfaces/Time stamp', '\tint32 sec', '\tuint32 nanosec', 'uint8 level', 'string name', 'string msg', 'string file', 'string function', 'uint32 line']}, '/test/dummy/pointcloud_topic': {'id': '/test/dummy/pointcloud_topic', 'name': '/test/dummy/pointcloud_topic', 'type': 'sensor_msgs/msg/PointCloud2', 'message_schema': ['std_msgs/Header header', '\tbuiltin_interfaces/Time stamp', '\t\tint32 sec', '\t\tuint32 nanosec', '\tstring frame_id', 'uint32 height', 'uint32 width', 'PointField[] fields', '\tuint8 INT8    = 1', '\tuint8 UINT8   = 2', '\tuint8 INT16   = 3', '\tuint8 UINT16  = 4', '\tuint8 INT32   = 5', '\tuint8 UINT32  = 6', '\tuint8 FLOAT32 = 7', '\tuint8 FLOAT64 = 8', '\tstring name      #', '\tuint32 offset    #', '\tuint8  datatype  #', '\tuint32 count     #', 'bool    is_bigendian # Is this data bigendian?', 'uint32  point_step   # Length of a point in bytes', 'uint32  row_step     # Length of a row in bytes', 'uint8[] data         # Actual point data, size is (row_step*height)', 'bool is_dense        # True if there are no invalid points']}}, 'services': {'/test/dummy/pointcloud_service': {'id': '/test/dummy/pointcloud_service', 'name': '/test/dummy/pointcloud_service', 'type': 'std_srvs/srv/Trigger', 'message_schema': ['---', 'bool success   # indicate successful run of triggered service', 'string message # informational, e.g. for error messages']}}, 'actions': {}, 'connections': [{'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'topic', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_topic', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/publisher/pcl_publisher', 'target_id': '/test/dummy/pointcloud_service', 'direction': 'call'}, {'type': 'topic', 'source_id': '/test/dummy/pointcloud_topic', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'subscribe'}, {'type': 'topic', 'source_id': '/test/dummy/subscriber/pcl_subscriber', 'target_id': '/rosout', 'direction': 'publish'}, {'type': 'service', 'source_id': '/test/dummy/pointcloud_service', 'target_id': '/test/dummy/subscriber/pcl_subscriber', 'direction': 'provide'}]},
+              cy: null,
+              mouse: {
+                x: 0,
+                y: 0,
+              },
+              edge_curve_style: 'bezier',
+              style: [
+                      // コンパウンドノード（Rectグループ）のスタイル
+                      {
+                          selector: '.ros2_package',
+                          style: {
+                              'background-color': '#f0f0ff',
+                              'border-color': '#999',
+                              'border-width': 2,
+                              'border-style': 'dashed',
+                              'padding': '5px',
+                              'text-valign': 'top',
+                              'text-halign': 'center',
+                              'label': 'data(label)',
+                              'font-size': '14px',
+                              'color': '#333',
+                          }
+                      },
+                      // ROSノードのスタイル
+                      {
+                          selector: '.ros2_node',
+                          style: {
+                              'background-color': '#9999ff',
+                              'label': 'data(label)',
+                              'text-valign': 'center',
+                              'color': '#000000',
+                              'shape': 'round-rectangle',
+                              'width': 'label',
+                              'height': 40,
+                              'font-size': '14px',
+                              'padding': '5px'
+                          }
+                      },
+                      // トピックノードのスタイル
+                      {
+                          selector: '.ros2_topic',
+                          style: {
+                              'background-color': '#3CB371',
+                              'label': 'data(label)',
+                              'text-valign': 'center',
+                              'color': '#000000',
+                              'shape': 'ellipse',
+                              'width': 'label',
+                              'font-size': '14px',
+                              'height': 30,
+                              'padding': '5px'
+                          }
+                      },
+                      // サービスノードのスタイル
+                      {
+                          selector: '.ros2_service',
+                          style: {
+                              'background-color': '#c5a039',
+                              'label': 'data(label)',
+                              'text-valign': 'center',
+                              'color': '#000000',
+                              'shape': 'ellipse',
+                              'width': 'label',
+                              'font-size': '14px',
+                              'height': 30,
+                              'padding': '5px'
+                          }
+                      },
+                      {
+                          selector: 'node[label]',
+                          style: {
+                              'min-width': '60px',
+                              'text-wrap': 'wrap',
+                              'text-max-width': '80px',
+                              'font-size': '14px'
+                          }
+                      },
+                      // エッジのスタイル (Topic/Service共通のデフォルト設定)
+                      { selector: 'edge',
+                        style: {
+                            'width': 3,
+                            'target-arrow-shape': 'triangle',
+                            'label': 'data(label)',
+                            'font-size': '14px',
+                            'color': '#000000',
+                        }
+                      },
+                      // ** Topic エッジのスタイル **
+                      { selector: '.ros2_topic_edge',
+                        style: {
+                            'line-color': '#3CB371', // トピックノードの色と一致 (緑)
+                            'target-arrow-color': '#3CB371',
+                        }
+                      },
+
+                      // ** Service エッジのスタイル **
+                      { selector: '.ros2_service_edge',
+                        style: {
+                            'line-color': '#c5a039', // サービスノードの色と一致 (黄土色)
+                            'target-arrow-color': '#c5a039',
+                        }
+                      },
+                  ],
+              include_nodes: [],
+              exclude_nodes: [
+                  // default で除外しておくリスト
+                  new RegExp('/rosout'),
+                  new RegExp('/diagnostics'),
+                  new RegExp('/robot_state_publisher'),
+                  new RegExp('/rosbridge_websocket'),
+                  new RegExp('/rosbag2_recorder'),
+                  new RegExp('/rosapi'),
+              ],
+              current_filtered_data: null,
+              current_selected_node_id: null,
+          };
+
+          function create_diagram(source) {
+              const source_data = source;
+              let layoutToUse = (typeof cytoscapeDagre === 'function') ? 'dagre' : 'cose';
+              const drowContainer = document.getElementById('cy');
+              // 初期化
+              drowContainer.innerHTML = "";
+
+              const cytoscape_data = {
+                  container: drowContainer,
+                  elements: [],
+                  layout: {
+                      name: 'elk',
+                      padding: 5,
+                      nodeDimensionsIncludeLabels: true,
+                      fit: true,
+                      animate: false,
+
+                      // Elk/Dagreのハイエンドオプション
+                      rankDir: 'TB',
+                      minLen: function(edge) { return 1; },
+                      // edgeSep: 50,
+                      // nodeSep: 50,
+                      // rankSep: 50,
+
+                      // Elk固有の安定化オプション（Elk使用時のみ有効）
+                      elk: {
+                          'elk.direction': 'DOWN',
+                          // 'elk.spacing.componentComponent': 450,
+                          'elk.spacing.componentComponent': 50,
+                          // 'elk.spacing.nodeNode': 20,
+                          'elk.spacing.nodeNode': 10,
+                          // 'elk.padding': '[top=60,left=60,bottom=60,right=60]',
+                          'elk.padding': '[top=10,left=10,bottom=10,right=10]',
+                          'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+                      }
+                  },
+                  style: globalObjects.style,
+              };
+              const nodes = {};
+              const connectionMap = {};
+              const edges = [];
+
+
+              const add_node = (id) => {
+                  const node = source_data.nodes[id];
+                  let parent = undefined;
+                  let name = "";
+                  const pathlist = node.name.split('/');
+                  for (let k = 0; k < pathlist.length; k++) {
+                      const path_name = pathlist[k];
+                      if (path_name == "") continue;
+                      name = name + "/" + path_name;
+                      if (!(name in nodes)) {
+                          const is_node = (k == pathlist.length -1);
+                          // if (is_node == false) continue;
+                          const elm = {
+                              group: 'nodes',
+                              data: {
+                                  // id: node.name,
+                                  id: is_node? id : name,
+                                  // label: is_node? node.name : path_name,
+                                  label: path_name,
+                                  parent: parent? parent : undefined,
+                                  details: is_node? node.parameters : undefined,
+                                  ros2_type: is_node? "node" : "group",
+                              },
+                              classes: is_node? "ros2_node": "ros2_package",
+                          };
+                          nodes[name] = elm;
+                      }
+                      parent = name;
+                  }
+              };
+
+              const add_topic = (id) => {
+                  const topic = source_data.topics[id];
+                  let parent = undefined;
+                  let name = "";
+                  const pathlist = topic.name.split('/');
+                  for (let k = 0; k < pathlist.length; k++) {
+                      const path_name = pathlist[k];
+                      if (path_name == "") continue;
+                      name = name + "/" + path_name;
+                      if (!(name in nodes)) {
+                          const is_node = (k == pathlist.length -1);
+                          // if (is_node == false) continue;
+                          const elm = {
+                              group: 'nodes',
+                              data: {
+                                  id: is_node? id : name,
+                                  // label: is_node? topic.name : path_name,
+                                  label: path_name,
+                                  parent: parent? parent : undefined,
+                                  msg_type: is_node? topic.type : undefined,
+                                  details: is_node? topic.message_schema.map(item => item.replaceAll('\t', '  ')) : undefined,
+                                  ros2_type: is_node? "topic" : "group",
+                              },
+                              classes: is_node? "ros2_topic": "ros2_package",
+                          };
+                          nodes[name] = elm;
+                      }
+                      parent = name;
+                  }
+              };
+
+              const add_service = (id) => {
+                  const sevice = source_data.services[id];
+                  let parent = undefined;
+                  let name = "";
+                  const pathlist = sevice.name.split('/');
+                  for (let k = 0; k < pathlist.length; k++) {
+                      const path_name = pathlist[k];
+                      if (path_name == "") continue;
+                      name = name + "/" + path_name;
+                      if (!(name in nodes)) {
+                          const is_node = (k == pathlist.length -1);
+                          // if (is_node == false) continue;
+                          const elm = {
+                              group: 'nodes',
+                              data: {
+                                  id: is_node? id : name,
+                                  // label: is_node? sevice.name : path_name,
+                                  label: path_name,
+                                  parent: parent? parent : undefined,
+                                  msg_type: is_node? sevice.type : undefined,
+                                  details: is_node? sevice.message_schema.map(item => item.replaceAll('\t', '  ')) : undefined,
+                                  ros2_type: is_node? "service" : "group",
+                              },
+                              classes: is_node? "ros2_service": "ros2_package",
+                          };
+                          nodes[name] = elm;
+                      }
+                      parent = name;
+                  }
+              };
+
+              for (let index = 0; index < source_data.connections.length; index++) {
+                  const { type, source_id, target_id, direction } = source_data.connections[index];
+                  const connData = {
+                      from: [],
+                      to: [],
+                      name: "",
+                      type: "",
+                  };
+                  switch (direction) {
+                      case 'publish':
+                          if (!source_id in source_data.nodes || !target_id in source_data.topics) continue;
+                          connData.from.push(source_id);
+                          connData.name = target_id;
+                          connData.type = "topic";
+                          add_node(source_id);
+                          break;
+                      case 'subscribe':
+                          if (!source_id in source_data.topics || !target_id in source_data.nodes) continue;
+                          connData.to.push(target_id);
+                          connData.name = source_id;
+                          connData.type = "topic";
+                          add_node(target_id);
+                          break;
+                      case 'call':
+                          if (!source_id in source_data.nodes || !target_id in source_data.services) continue;
+                          connData.from.push(source_id);
+                          connData.name = target_id;
+                          connData.type = "service";
+                          add_node(source_id);
+                          break;
+                      case 'provide':
+                          if (!source_id in source_data.services || !target_id in source_data.nodes) continue;
+                          connData.to.push(target_id);
+                          connData.name = source_id;
+                          connData.type = "service";
+                          add_node(target_id);
+                          break;
+                      default:
+                          continue;
+                          break;
+                  }
+                  if (connData.name in connectionMap) {
+                      const prevData = connectionMap[connData.name];
+                      connectionMap[connData.name] = {
+                          from: [...prevData.from, ...connData.from],
+                          to: [...prevData.to, ...connData.to],
+                          name: prevData.name,
+                          type: prevData.type,
+                      };
+                  } else {
+                      connectionMap[connData.name] = connData;
+                  }
+              }
+              const add_edge =(source_id, target_id, name, connType, message_schema, msg_type) => {
+                  const edgeClass = connType === "topic" ? "ros2_topic_edge" : "ros2_service_edge";
+                  edges.push({
+                      group: 'edges',
+                      data: {
+                          id: `e-${edges.length + 1}`,
+                          source: source_id,
+                          target: target_id,
+                          label: name,
+                          msg_type: msg_type,
+                          details: message_schema.map(item => item.replaceAll('\t', '  ')),
+                          ros2_type:connType,
+                      },
+                      classes: edgeClass,
+                  });
+              };
+
+              for (const key in connectionMap) {
+                  const connection = connectionMap[key];
+                  const sourceCount = connection.from.length;
+                  const targetCount = connection.to.length;
+                  const message = connection.type == "topic"? source_data.topics[key] : source_data.services[key];
+                  if (sourceCount > 0 && targetCount > 0) {
+                      for (let i_s = 0; i_s < sourceCount; i_s++) {
+                          const source_id = connection.from[i_s];
+                          for (let i_t = 0; i_t < targetCount; i_t++) {
+                              const target_id = connection.to[i_t];
+                              add_edge(source_id, target_id, connection.name, connection.type, message.message_schema, message.type);
+                          }
+                      }
+                  } else if (sourceCount <= 0) {
+                      const source_id = connection.name;
+                      connection.type == "topic"? add_topic(source_id) : add_service(source_id);
+                      for (let i_t = 0; i_t < targetCount; i_t++) {
+                          const target_id = connection.to[i_t];
+                          add_edge(source_id, target_id, connection.name, connection.type, message.message_schema, message.type);
+                      }
+                  } else {
+                      const target_id = connection.name;
+                      connection.type == "topic"? add_topic(target_id) : add_service(target_id);
+                      for (let i_s = 0; i_s < sourceCount; i_s++) {
+                          const source_id = connection.from[i_s];
+                          add_edge(source_id, target_id, connection.name, connection.type, message.message_schema, message.type);
+                      }
+                  }
+              }
+
+              // topic で node と同名のものはそのparant のGroup に属させる
+              const rosNodes = [];
+              const rosTopics = [];
+              const rosServices= [];
+
+              for (const key in nodes) {
+                  const element = nodes[key];
+                  switch (element.data.ros2_type) {
+                      case 'node':
+                          rosNodes.push(element);
+                          break;
+                      case 'topic':
+                          rosTopics.push(element);
+                          break;
+                      case 'service':
+                          rosServices.push(element);
+                          break;
+                      default:
+                          break;
+                  }
+              }
+
+              rosTopics.forEach(topic => {
+                  const parent_id = topic.data.parent;
+                  const parent_node = rosNodes.find(node => node.data.id == parent_id );
+                  if (parent_node) {
+                      topic.data.parent = parent_node.data.parent;
+                  }
+              });
+
+              rosServices.forEach(service => {
+                  const parent_id = service.data.parent;
+                  const parent_node = rosNodes.find(node => node.data.id == parent_id );
+                  if (parent_node) {
+                      service.data.parent = parent_node.data.parent;
+                  }
+              });
+
+              const node_elements = Object.keys(nodes).map(key => nodes[key]);
+              cytoscape_data.elements = [...node_elements, ...edges];
+              globalObjects.cy = cytoscape(cytoscape_data);
+              // インタラクティブ性の実装 (クリックコールバック)
+
+              globalObjects.cy.on('tap', 'node', function(evt){
+                  let element = evt.target;
+                  let data = element.data();
+
+                  console.log('ros2_type:', data.ros2_type);
+
+                  let typeLabel = '';
+                  if (data.ros2_type === 'node') {
+                      typeLabel = 'ROSノード';
+                  } else if (data.ros2_type == 'topic') {
+                      typeLabel = 'トピック';
+                  } else if (data.ros2_type == 'service') {
+                      typeLabel = 'サービス';
+                  } else if (data.ros2_type == 'group') {
+                      typeLabel = 'name space';
+                  } else {
+                      typeLabel = '要素';
+                  }
+
+                  let details = data.details ? JSON.stringify(data.details, null, 2) :
+                                  `ID: ${data.id}\nROS2 Type: ${data.ros2_type}\n(詳細データなし)`;
+
+                  let output = `--- [${typeLabel}: ${data.label}] ---\nID: ${data.id}\n${(data.ros2_type == 'topic' || data.ros2_type == 'service')?"Type: " + data.msg_type + "\n" : ""}--------------------\n${details}`;
+
+                  document.getElementById('details-panel').textContent = output;
+              });
+
+              globalObjects.cy.on('tap', 'edge', function(evt){
+                  let element = evt.target;
+                  let data = element.data();
+
+                  console.log('ros2_type:', data.ros2_type);
+
+                  let typeLabel = '';
+                  if (data.ros2_type == 'topic') {
+                      typeLabel = 'トピック';
+                  } else if (data.ros2_type == 'service') {
+                      typeLabel = 'サービス';
+                  } else {
+                      typeLabel = '要素';
+                  }
+
+                  let details = data.details ? JSON.stringify(data.details, null, 2) :
+                                  `ID: ${data.id}\nROS2 Type: ${data.ros2_type}\n(詳細データなし)`;
+                  const direction = `${data.source} -> ${data.target}`;
+
+                  let output = `--- [${typeLabel}: ${data.label}] ---\nDirection: ${direction}\n${(data.ros2_type == 'topic' || data.ros2_type == 'service')?"Type: " + data.msg_type + "\n" : ""}--------------------\n${details}`;
+
+                  document.getElementById('details-panel').textContent = output;
+              });
+
+              const contextMenu = document.getElementById('context-menu');
+
+              // 1. ノードに対する右クリック (cxttap) イベント処理
+              globalObjects.cy.on('cxttap', 'node', function(evt) {
+                  evt.preventDefault(); // ブラウザデフォルトのコンテキストメニューを抑制
+                  const node = evt.target;
+                  const nodeId = node.data('id');
+                  const nodeLabel = node.data('label'); // パス全体ではなく、最後のラベル名が表示されますが、ID（フルパス）を使用
+
+                  // ID (フルパス) が含まれていないグループノードは無視
+                  if (!nodeId || node.data('ros2_type') === 'group') {
+                      contextMenu.style.display = 'none';
+                      return;
+                  }
+
+                  globalObjects.current_selected_node_id = nodeId;
+
+                  // メニュー項目に表示するノード名を一時的に設定
+                  document.getElementById('add-include-menu').textContent = `➡️「含める」に ${nodeLabel} を追加`;
+                  document.getElementById('add-exclude-menu').textContent = `🚫 「除外する」に ${nodeLabel} を追加`;
+
+                  contextMenu.style.left = `${globalObjects.mouse.x}px`;
+                  contextMenu.style.top = `${globalObjects.mouse.y}px`;
+                  contextMenu.style.display = 'block';
+              });
+
+              // 2. グラフ上の何もない場所を右クリックした場合、メニューを非表示に
+              globalObjects.cy.on('cxttap', function(evt) {
+                  if (evt.target === globalObjects.cy) {
+                      contextMenu.style.display = 'none';
+                  }
+              });
+
+          }
+
+      // パターンの削除
+      function removeIncludeRegex(index) {
+      		globalObjects.include_nodes.splice(index, 1);
+      		renderIncludeFilterList(); // リストを更新
+      		redraw_graph(); // グラフを再描画
+      }
+
+          // フィルタリストの描画
+          function renderIncludeFilterList() {
+              const includeFilterList = document.getElementById('include-filter-list');
+              includeFilterList.innerHTML = '';
+              globalObjects.include_nodes.forEach((regex, index) => {
+                  const regexText = regex.source; // RegExpオブジェクトから文字列を取得
+                  const patternDiv = document.createElement('span');
+                  patternDiv.style.cssText = 'display: inline-block; margin-right: 10px; padding: 5px; border: 1px solid #ccc; background-color: #e6e6e6; border-radius: 4px;';
+                  patternDiv.innerHTML = `
+                      ${regexText}
+                      <button data-index="${index}" class="remove-include-regex-btn" style="margin-left: 5px; background-color: #dc3545; padding: 3px 6px;">x</button>
+                  `;
+                  includeFilterList.appendChild(patternDiv);
+              });
+
+              // 削除ボタンのリスナーを再設定
+              document.querySelectorAll('.remove-include-regex-btn').forEach(button => {
+                  button.addEventListener('click', function() {
+                      const index = parseInt(this.getAttribute('data-index'));
+                      removeIncludeRegex(index);
+                  });
+              });
+          }
+
+      // パターンの削除
+      function removeExcludeRegex(index) {
+      		globalObjects.exclude_nodes.splice(index, 1);
+      		renderExcludeFilterList(); // リストを更新
+      		redraw_graph(); // グラフを再描画
+      }
+
+
+          // フィルタリストの描画
+          function renderExcludeFilterList() {
+              const excludeFilterList = document.getElementById('exclude-filter-list');
+              excludeFilterList.innerHTML = '';
+              globalObjects.exclude_nodes.forEach((regex, index) => {
+                  const regexText = regex.source; // RegExpオブジェクトから文字列を取得
+                  const patternDiv = document.createElement('span');
+                  patternDiv.style.cssText = 'display: inline-block; margin-right: 10px; padding: 5px; border: 1px solid #ccc; background-color: #e6e6e6; border-radius: 4px;';
+                  patternDiv.innerHTML = `
+                      ${regexText}
+                      <button data-index="${index}" class="remove-exclude-regex-btn" style="margin-left: 5px; background-color: #dc3545; padding: 3px 6px;">x</button>
+                  `;
+                  excludeFilterList.appendChild(patternDiv);
+              });
+
+              // 削除ボタンのリスナーを再設定
+              document.querySelectorAll('.remove-exclude-regex-btn').forEach(button => {
+                  button.addEventListener('click', function() {
+                      const index = parseInt(this.getAttribute('data-index'));
+                      removeExcludeRegex(index);
+                  });
+              });
+          }
+
+          function updateEdgeStyle(styleValue) {
+              for (let i = 0; i < globalObjects.style.length; i++) {
+                  if (globalObjects.style[i].selector === 'edge') {
+                      globalObjects.style[i].style['curve-style'] = styleValue;
+                      break;
+                  }
+              }
+
+              // トピックエッジとサービスエッジも直線にする場合は 'straight' を使用
+              if (styleValue === 'straight-triangle') {
+                // 直線の場合、ターゲットの三角形の矢印形状を 'triangle-backwards' に設定
+                // (straightの場合、デフォルトの'triangle'は表示が不自然になりやすいため)
+                for (let i = 0; i < globalObjects.style.length; i++) {
+                    if (globalObjects.style[i].selector === '.ros2_topic_edge' || globalObjects.style[i].selector === '.ros2_service_edge') {
+                        globalObjects.style[i].style['target-arrow-shape'] = 'triangle-backwards';
+                    }
+                }
+                } else {
+                // それ以外の場合は通常の三角形
+                for (let i = 0; i < globalObjects.style.length; i++) {
+                    if (globalObjects.style[i].selector === '.ros2_topic_edge' || globalObjects.style[i].selector === '.ros2_service_edge') {
+                        globalObjects.style[i].style['target-arrow-shape'] = 'triangle';
+                    }
+                }
+              }
+
+              globalObjects.edge_curve_style = styleValue;
+          }
+
+          function redraw_graph() {
+              // 既存の要素データをコピー
+              const all_elements = globalObjects.elements;
+
+              // フィルタリング後の要素を格納するオブジェクト
+              const filtered_elements = {
+                  nodes: {...all_elements.nodes},
+                  topics: {...all_elements.topics},
+                  services: {...all_elements.services},
+                  connections: [],
+              };
+
+              const include_nodes = globalObjects.include_nodes;
+              const exclude_nodes = globalObjects.exclude_nodes;
+
+              // フィルタリングロジック
+              for (let i = 0; i < all_elements.connections.length; i++) {
+                  const connection = all_elements.connections[i];
+                  let isMatch = false; // 接続のいずれかの端が一致すればOKとするロジック
+
+                  // include_nodes_regex が空の場合は、全て表示
+                  if (include_nodes.length === 0) {
+                      isMatch = true;
+                  } else {
+                      // 正規表現のいずれかにマッチするかチェック
+                      for (let j = 0; j < include_nodes.length; j++) {
+                          const regex = include_nodes[j];
+                          // source_id または target_id のどちらかがマッチすれば表示
+                          if (connection.source_id.match(regex) || connection.target_id.match(regex)) {
+                              isMatch = true;
+                              break;
+                          }
+                      }
+                  }
+
+                  for (let j = 0; j < exclude_nodes.length; j++) {
+                      const regex = exclude_nodes[j];
+                      // source_id または target_id のどちらかがマッチすれば非表示
+                      if (connection.source_id.match(regex) || connection.target_id.match(regex)) {
+                          isMatch = false;
+                          break;
+                      }
+                  }
+                  if (isMatch) {
+                      filtered_elements.connections.push(connection);
+                  }
+              }
+
+              globalObjects.current_filtered_data = filtered_elements;
+              // フィルタリングされたデータでグラフを描画
+              create_diagram(filtered_elements);
+          }
+
+          document.addEventListener('DOMContentLoaded', function() {
+
+      	if (typeof cytoscape.use === 'function' && typeof cytoscapeDagre === 'function') {
+      			cytoscape.use(cytoscapeDagre);
+      			console.log("Dagre layout successfully registered.");
+      	} else {
+      			console.error("Failed to register Dagre. Falling back to default 'cose'.");
+      	}
+
+      	// SVGエクスポート拡張を登録
+      	if (typeof cytoscape.use === 'function' && typeof cytoscapeSvg === 'function') {
+      			cytoscape.use(cytoscapeSvg);
+      			console.log("SVG extension successfully registered.");
+      	} else {
+      			console.error("Failed to register SVG extension. SVG export functionality may be unavailable.");
+      	}
+
+        updateEdgeStyle(globalObjects.edge_curve_style);
+      	redraw_graph();
+        const body = document.body;
+        body.addEventListener("mousemove", function (event) {
+            // 1. 要素のビューポート基準の位置を取得
+            const rect = body.getBoundingClientRect();
+            // 2. マウスのビューポート基準の位置を取得
+            const clientX = event.clientX;
+            const clientY = event.clientY;
+            // 3. 要素内での相対位置を計算,保持
+            globalObjects.mouse.x = clientX - rect.left;
+            globalObjects.mouse.y = clientY - rect.top;
+        });
+
+      	document.getElementById('export-svg-btn').addEventListener('click', function() {
+
+      			if (typeof globalObjects.cy.svg !== 'function') {
+      					alert('エラー: SVGエクスポート機能が利用できません。ライブラリの読み込みを確認してください。');
+      					return;
+      			}
+
+      			let svg = globalObjects.cy.svg({ scale: 1.5, full: true });
+
+      			let blob = new Blob([svg], { type: 'image/svg+xml' });
+      			let url = URL.createObjectURL(blob);
+
+      			let a = document.createElement('a');
+      			a.href = url;
+      			a.download = 'ros2_graph_diagram.svg';
+      			document.body.appendChild(a);
+      			a.click();
+
+      			document.body.removeChild(a);
+      			URL.revokeObjectURL(url);
+
+      			setTimeout(() => {
+      					alert('ros2_graph_diagram.svgとしてエクスポートされました。');
+      			}, 100);
+      	});
+
+      	document.getElementById('export-json-btn').addEventListener('click', function() {
+      		const data = globalObjects.current_filtered_data;
+
+      		if (!data) {
+      				alert('エラー: エクスポートするデータがありません。グラフが正しく読み込まれているか確認してください。');
+      				return;
+      		}
+
+      		// JSON文字列に整形して変換
+      		const jsonString = JSON.stringify(data, null, 2);
+
+      		// ダウンロード処理
+      		const blob = new Blob([jsonString], { type: 'application/json' });
+      		const url = URL.createObjectURL(blob);
+
+      		const a = document.createElement('a');
+      		a.href = url;
+      		a.download = 'ros2_filtered_graph_data.json';
+      		document.body.appendChild(a);
+      		a.click();
+
+      		document.body.removeChild(a);
+      		URL.revokeObjectURL(url);
+
+      		setTimeout(() => {
+      				alert('ros2_filtered_graph_data.jsonとしてエクスポートされました。');
+      		}, 100);
+      	});
+
+      	window.addEventListener("resize", function () {
+      			if (globalObjects.cy) {
+      					globalObjects.cy.resize();
+      			}
+      	});
+
+      	// include filter ------------------------------------------------------------------------
+      	const includeRegexInput = document.getElementById('include-regex-input');
+      	const addIncludePatternBtn = document.getElementById('add-include-regex-btn');
+
+
+      	// パターンの追加
+      	addIncludePatternBtn.addEventListener('click', function() {
+      			const pattern = includeRegexInput.value.trim();
+      			if (pattern) {
+      					try {
+      							// 正規表現オブジェクトを作成して配列に追加
+      							const newRegex = new RegExp(pattern);
+      							globalObjects.include_nodes.push(newRegex);
+      							includeRegexInput.value = ''; // 入力欄をクリア
+      							renderIncludeFilterList(); // リストを更新
+      							redraw_graph(); // グラフを再描画
+      					} catch (e) {
+      							alert(`無効な正規表現です: ${e.message}`);
+      					}
+      			}
+      	});
+
+      	// exclude filter ------------------------------------------------------------------------
+      	const excludeRegexInput = document.getElementById('exclude-regex-input');
+      	const addExcludePatternBtn = document.getElementById('add-exclude-regex-btn');
+
+
+        const edgeStyleSelect = document.getElementById('edge-style-select');
+
+        edgeStyleSelect.addEventListener('change', function() {
+            const newStyle = this.value;
+            updateEdgeStyle(newStyle); // スタイルを更新
+            redraw_graph(); // グラフを再描画
+        });
+
+
+      	// パターンの追加
+      	addExcludePatternBtn.addEventListener('click', function() {
+      			const pattern = excludeRegexInput.value.trim();
+      			if (pattern) {
+      					try {
+      							// 正規表現オブジェクトを作成して配列に追加
+      							const newRegex = new RegExp(pattern);
+      							globalObjects.exclude_nodes.push(newRegex);
+      							excludeRegexInput.value = ''; // 入力欄をクリア
+      							renderExcludeFilterList(); // リストを更新
+      							redraw_graph(); // グラフを再描画
+      					} catch (e) {
+      							alert(`無効な正規表現です: ${e.message}`);
+      					}
+      			}
+      	});
+
+        const contextMenu = document.getElementById('context-menu');
+
+        // 1. メニュー項目のクリック処理
+
+        // 「含めるパターン」に追加
+        document.getElementById('add-include-menu').addEventListener('click', function() {
+            const currentSelectedNodeId = globalObjects.current_selected_node_id;
+            if (currentSelectedNodeId) {
+                const pattern = currentSelectedNodeId;
+                try {
+                    const newRegex = new RegExp(pattern);
+                    globalObjects.include_nodes.push(newRegex);
+                    renderIncludeFilterList();
+                    redraw_graph();
+                } catch (e) {
+                    alert(`エラー: 無効な正規表現です ${e.message}`);
+                }
+            }
+            contextMenu.style.display = 'none';
+        });
+
+        // 「除外するパターン」に追加
+        document.getElementById('add-exclude-menu').addEventListener('click', function() {
+            const currentSelectedNodeId = globalObjects.current_selected_node_id;
+            if (currentSelectedNodeId) {
+                const pattern = currentSelectedNodeId;
+
+                try {
+                    const newRegex = new RegExp(pattern);
+                    globalObjects.exclude_nodes.push(newRegex);
+                    renderExcludeFilterList();
+                    redraw_graph();
+                } catch (e) {
+                    alert(`エラー: 無効な正規表現です ${e.message}`);
+                }
+            }
+            contextMenu.style.display = 'none';
+        });
+
+        // 2. グローバルな左クリックでメニューを非表示に
+        document.addEventListener('click', function(e) {
+            if (!contextMenu.contains(e.target) && e.button === 0) {
+                contextMenu.style.display = 'none';
+            }
+        });
+      	// 初期リスト描画
+      	renderExcludeFilterList();
+
+          });
+    </script>
+  </body>
+</html>
