@@ -240,10 +240,20 @@ def collect_ros2_graph_data() -> Dict[str, Any]:
     node_list_raw = run_ros2_command(["ros2", "node", "list", "-a"])
     node_list_all = [n.strip() for n in (node_list_raw.split('\n') if node_list_raw else []) if n.strip()]
 
+    # コンポーネント情報の取得
+    print("Getting component info...", file=sys.stderr)
+    container_nodes, component_nodes = get_component_info()
+    print(f"Found {len(container_nodes)} container nodes, {len(component_nodes)} component nodes", file=sys.stderr)
+
     node_list_filtered = []
     for n in node_list_all:
         if not n.startswith('/_ros2cli_') and n != '/ros2_state_yaml_dumper_node':
             node_list_filtered.append(n)
+    
+    # componentノードを追加（重複を避ける）
+    for comp_node in component_nodes:
+        if comp_node not in node_list_filtered:
+            node_list_filtered.append(comp_node)
 
     total_nodes = len(node_list_filtered)
 
@@ -274,12 +284,7 @@ def collect_ros2_graph_data() -> Dict[str, Any]:
                     type_name = match.group(2)
                     discovered_services[name] = type_name
 
-    # 3. コンポーネント情報の取得 (コンテナはparam dumpでタイムアウトするためスキップ)
-    print("Getting component info...", file=sys.stderr)
-    container_nodes, component_nodes = get_component_info()
-    print(f"Found {len(container_nodes)} container nodes, {len(component_nodes)} component nodes", file=sys.stderr)
-
-    # 4. ノードごとの情報と接続の収集
+    # 3. ノードごとの情報と接続の収集
     for i, node_name in enumerate(node_list_filtered):
         # 進捗情報の出力
         processed_nodes = i + 1
@@ -291,6 +296,14 @@ def collect_ros2_graph_data() -> Dict[str, Any]:
 
         # パス構築
         path_parts = [p for p in node_name.split('/') if p]
+
+        # ノードタイプの判定
+        if node_name in container_nodes:
+            node_type = "container"
+        elif node_name in component_nodes:
+            node_type = "component"
+        else:
+            node_type = "node"
 
         # パラメータの取得 (ros2 param dump を使用)
         # コンテナノードや特定パターンのノードはparam dumpでタイムアウトするためスキップ
@@ -312,7 +325,7 @@ def collect_ros2_graph_data() -> Dict[str, Any]:
             "id": node_id,
             "name": node_name,
             "path": path_parts,
-            "type": "component",
+            "type": node_type,
             "parameters": parameters
         }
 
